@@ -15,7 +15,7 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<MainDashboard />} /> 
-        <Route path="/" element={<LoginPage />} />
+        <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/babysitter-portal" element={<BabysitterPortal />} />
         <Route path="/babysitter-management" element={<BabysitterManagement />} />
