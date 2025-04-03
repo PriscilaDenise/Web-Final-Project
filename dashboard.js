@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 const MainDashboard = () => {
-  // State for contact form
+  // State for contact forms
   const [contactForm, setContactForm] = useState({
     name: '',
     email: '',
