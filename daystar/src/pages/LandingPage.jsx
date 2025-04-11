@@ -12,7 +12,7 @@ const LandingPage = () => {
       <section className="relative bg-blue-500 text-white py-16 px-4 text-center bg-opacity-90 bg-[url('/path-to-image.jpg')] bg-cover bg-center">
         <div className="absolute inset-0 bg-black opacity-30"></div>
         <div className="relative z-10">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 animate-fade-in">Daystar Daycare Center</h1>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 animate-fade-in">Daystar Daycare</h1>
           <p className="text-lg md:text-xl mb-6">Nurturing Care and Early Learning for Your Little Ones</p>
           <p className="text-md mb-8">A safe, stimulating environment for children aged 0-5</p>
           <div className="space-x-4">
@@ -71,8 +71,8 @@ const LandingPage = () => {
         <h2 className="text-3xl font-semibold text-center mb-8 text-gray-800">Get in Touch</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="text-gray-700">
-            <p><strong>Address:</strong> 123 Daystar Lane, Kampala, Uganda</p>
-            <p><strong>Phone:</strong> <a href="tel:+256123456789" className="text-blue-500 hover:underline">+256 123 456 789</a></p>
+            <p><strong>Address:</strong> Kampala, Uganda</p>
+            <p><strong>Phone:</strong> <a href="tel:+256755133406" className="text-blue-500 hover:underline">+256 755 133 406</a></p>
             <p><strong>Email:</strong> <a href="mailto:info@daystardaycare.com" className="text-blue-500 hover:underline">info@daystardaycare.com</a></p>
           </div>
           <div className="bg-gray-300 h-64 rounded-lg flex items-center justify-center text-gray-500">
