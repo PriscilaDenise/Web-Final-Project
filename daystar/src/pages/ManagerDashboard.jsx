@@ -8,10 +8,9 @@ import { useNotifications } from '../context/NotificationContext';
 
 const ManagerDashboard = () => {
   const navigate = useNavigate();
-  const { addNotification } = useNotifications();
+  const { notifications, addNotification, removeNotification } = useNotifications();
   const [isLoggedIn, setIsLoggedIn] = useState(true);
 
-  // Mock Data
   const [babysitters, setBabysitters] = useState([
     { id: 1, firstName: 'Mary', lastName: 'Smith', email: 'mary@example.com', phone: '+256 987 654 321', nin: 'CM12345678', age: 25, nextOfKin: { name: 'John Smith', phone: '+256 111 222 333' } },
   ]);
@@ -41,9 +40,8 @@ const ManagerDashboard = () => {
   const [newBabysitter, setNewBabysitter] = useState({ firstName: '', lastName: '', email: '', phone: '', nin: '', age: '', nextOfKin: { name: '', phone: '' } });
   const [newChild, setNewChild] = useState({ name: '', age: '', parentPhone: '', sessionType: 'half-day' });
   const [newSchedule, setNewSchedule] = useState({ babysitterId: '', date: '', time: '', children: [], sessionType: 'half-day' });
-  const [activeTab, setActiveTab] = useState('children');
+  const [activeTab, setActiveTab] = useState('notifications'); // Default to notifications
 
-  // Budget Alerts
   const budgetAdherence = Object.keys(budget).map(category => ({
     category,
     budget: budget[category],
@@ -58,7 +56,6 @@ const ManagerDashboard = () => {
     });
   }, [budgetAdherence, addNotification]);
 
-  // Babysitter Registration
   const handleBabysitterChange = (e) => {
     const { name, value } = e.target;
     if (name.startsWith('nextOfKin')) {
@@ -69,7 +66,7 @@ const ManagerDashboard = () => {
     }
   };
 
-  const addBabysitter = (e) => { // Fixed typo: changed 'addBabysitterNES' to 'addBabysitter'
+  const addBabysitter = (e) => {
     e.preventDefault();
     const age = Number(newBabysitter.age);
     if (age < 21 || age > 35) {
@@ -85,7 +82,6 @@ const ManagerDashboard = () => {
     addNotification('Babysitter registered successfully!', 'success', 'manager');
   };
 
-  // Child Enrollment
   const handleChildChange = (e) => {
     const { name, value } = e.target;
     setNewChild((prev) => ({ ...prev, [name]: value }));
@@ -161,7 +157,6 @@ const ManagerDashboard = () => {
     }
   };
 
-  // Payment Management
   const calculatePayment = (childrenCount, sessionType) => {
     const rate = sessionType === 'full-day' ? 5000 : 2000;
     return childrenCount * rate;
@@ -172,7 +167,6 @@ const ManagerDashboard = () => {
     addNotification('Babysitter payment cleared successfully!', 'success', 'manager');
   };
 
-  // Scheduling and Attendance
   const handleScheduleChange = (e) => {
     const { name, value } = e.target;
     setNewSchedule((prev) => ({ ...prev, [name]: value }));
@@ -208,6 +202,8 @@ const ManagerDashboard = () => {
     navigate('/login');
   };
 
+  const managerNotifications = notifications.filter(n => n.role === 'manager' || n.role === 'all');
+
   return (
     <div className="min-h-screen bg-gray-100 font-sans">
       <Navbar isLoggedIn={isLoggedIn} onLogout={handleLogout} />
@@ -215,8 +211,8 @@ const ManagerDashboard = () => {
       <section className="py-12 px-4 max-w-6xl mx-auto">
         <h1 className="text-3xl md:text-4xl font-bold text-center mb-8 text-gray-800">Manager Dashboard</h1>
 
-        {/* Tabs */}
         <div className="flex flex-wrap justify-center gap-4 mb-6">
+          <button onClick={() => setActiveTab('notifications')} className={`px-4 py-2 rounded-lg ${activeTab === 'notifications' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>Notifications</button>
           <button onClick={() => setActiveTab('babysitters')} className={`px-4 py-2 rounded-lg ${activeTab === 'babysitters' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>Babysitters</button>
           <button onClick={() => setActiveTab('payments')} className={`px-4 py-2 rounded-lg ${activeTab === 'payments' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>Payments</button>
           <button onClick={() => setActiveTab('schedules')} className={`px-4 py-2 rounded-lg ${activeTab === 'schedules' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>Schedules</button>
@@ -224,7 +220,33 @@ const ManagerDashboard = () => {
           <button onClick={() => setActiveTab('financials')} className={`px-4 py-2 rounded-lg ${activeTab === 'financials' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>Financials</button>
         </div>
 
-        {/* Babysitters Tab */}
+        {activeTab === 'notifications' && (
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <h2 className="text-2xl font-semibold mb-4 text-gray-800">Notifications</h2>
+            {managerNotifications.length > 0 ? (
+              <ul className="space-y-4">
+                {managerNotifications.map((note) => (
+                  <li key={note.id} className="border-b pb-2 flex justify-between items-center">
+                    <div>
+                      <p>{note.message}</p>
+                      <span className="text-sm text-gray-500">{new Date(note.timestamp).toLocaleString()}</span>
+                    </div>
+                    <button
+                      onClick={() => removeNotification(note.id)}
+                      className="text-red-500 hover:text-red-700 focus:outline-none"
+                      aria-label="Close notification"
+                    >
+                      ✕
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>No new notifications.</p>
+            )}
+          </div>
+        )}
+
         {activeTab === 'babysitters' && (
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h2 className="text-2xl font-semibold mb-4 text-gray-800">Babysitter Management</h2>
@@ -255,7 +277,6 @@ const ManagerDashboard = () => {
           </div>
         )}
 
-        {/* Payments Tab */}
         {activeTab === 'payments' && (
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h2 className="text-2xl font-semibold mb-4 text-gray-800">Babysitter Payments</h2>
@@ -290,7 +311,6 @@ const ManagerDashboard = () => {
           </div>
         )}
 
-        {/* Schedules Tab */}
         {activeTab === 'schedules' && (
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h2 className="text-2xl font-semibold mb-4 text-gray-800">Babysitter Schedules & Attendance</h2>
@@ -342,12 +362,9 @@ const ManagerDashboard = () => {
           </div>
         )}
 
-        {/* Children Tab */}
         {activeTab === 'children' && (
           <div className="bg-white p-6 rounded-lg shadow-md space-y-8">
             <h2 className="text-2xl font-semibold mb-4 text-gray-800">Child Management</h2>
-
-            {/* Enrolled Children */}
             <div>
               <h3 className="text-xl font-semibold mb-4 text-gray-800">Enrolled Children</h3>
               <table className="w-full text-left">
@@ -384,8 +401,6 @@ const ManagerDashboard = () => {
                 </tbody>
               </table>
             </div>
-
-            {/* Pending Enrollments */}
             <div>
               <h3 className="text-xl font-semibold mb-4 text-gray-800">Pending Enrollments</h3>
               {pendingChildren.length === 0 ? (
@@ -418,8 +433,6 @@ const ManagerDashboard = () => {
                 </table>
               )}
             </div>
-
-            {/* Direct Enrollment */}
             <div>
               <h3 className="text-xl font-semibold mb-4 text-gray-800">Enroll New Child</h3>
               <form onSubmit={addChildDirectly} className="space-y-4">
@@ -436,7 +449,6 @@ const ManagerDashboard = () => {
           </div>
         )}
 
-        {/* Financials Tab (Simplified) */}
         {activeTab === 'financials' && (
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h2 className="text-2xl font-semibold mb-4 text-gray-800">Financial Management</h2>
