@@ -211,5 +211,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Contact
 
 For any queries or support, please contact:
-- Email: [your-email@example.com]
-- Project Link: [https://github.com/yourusername/daycare-management-system] 
+- Email: [oscarodongkara@gmail.com]
+- Project Link: [https://github.com/PriscilaDenise/Web-Final-Project] 
