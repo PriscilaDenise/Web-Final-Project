@@ -1,36 +1,51 @@
 // src/pages/ParentDashboard.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import Notifications from '../components/Notification';
 import { useNotifications } from '../context/NotificationContext';
+import { parentPayments, operations } from '../api';
 
 const ParentDashboard = () => {
   const navigate = useNavigate();
-  const { notifications } = useNotifications(); // Use global notifications
-  const [isLoggedIn, setIsLoggedIn] = useState(true); // Simulate logged-in state
+  const { notifications, addNotification } = useNotifications();
+  const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const [loading, setLoading] = useState(false);
 
-  // Mock data (excluding notifications, now from context)
-  const [paymentHistory] = useState([
-    { id: 1, date: '2025-03-01', amount: 5000, description: 'March Full-Day Sessions' },
-    { id: 2, date: '2025-02-01', amount: 2000, description: 'February Half-Day Sessions' },
-  ]);
-
+  const [paymentHistory, setPaymentHistory] = useState([]);
   const [profile, setProfile] = useState({
-    parentName: 'Jane Doe',
-    email: 'jane.doe@example.com',
-    phone: '+256 123 456 789',
+    parentName: '',
+    email: '',
+    phone: '',
   });
-
-  const [children, setChildren] = useState([
-    { id: 1, name: 'John Doe', age: 3, specialNeeds: 'Nut allergy', sessionType: 'full-day' },
-  ]);
-
+  const [children, setChildren] = useState([]);
   const [password, setPassword] = useState('');
   const [newChild, setNewChild] = useState({ name: '', age: '', specialNeeds: '', sessionType: 'half-day' });
-  const [editingChild, setEditingChild] = useState(null); // Track child being edited
+  const [editingChild, setEditingChild] = useState(null);
   const [activeTab, setActiveTab] = useState('notifications');
+
+  // Fetch initial data
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [paymentsRes, profileRes] = await Promise.all([
+          parentPayments.getAll(),
+          operations.getProfile()
+        ]);
+        
+        setPaymentHistory(paymentsRes.data);
+        setProfile(profileRes.data);
+      } catch (error) {
+        addNotification('Failed to fetch data. Please try again.', 'error', 'parent');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [addNotification]);
 
   // Handle profile update
   const handleProfileChange = (e) => {
@@ -38,9 +53,16 @@ const ParentDashboard = () => {
     setProfile((prev) => ({ ...prev, [name]: value }));
   };
 
-  const saveProfile = () => {
-    alert('Profile updated successfully!');
-    console.log('Updated Profile:', profile);
+  const saveProfile = async () => {
+    try {
+      setLoading(true);
+      await operations.updateProfile(profile);
+      addNotification('Profile updated successfully!', 'success', 'parent');
+    } catch (error) {
+      addNotification('Failed to update profile. Please try again.', 'error', 'parent');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Handle password change
@@ -48,13 +70,22 @@ const ParentDashboard = () => {
     setPassword(e.target.value);
   };
 
-  const savePassword = () => {
+  const savePassword = async () => {
     if (password.length < 6) {
-      alert('Password must be at least 6 characters long.');
+      addNotification('Password must be at least 6 characters long.', 'error', 'parent');
       return;
     }
-    alert('Password changed successfully!');
-    setPassword('');
+
+    try {
+      setLoading(true);
+      await operations.updatePassword(password);
+      addNotification('Password changed successfully!', 'success', 'parent');
+      setPassword('');
+    } catch (error) {
+      addNotification('Failed to change password. Please try again.', 'error', 'parent');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Handle new child addition
@@ -63,12 +94,19 @@ const ParentDashboard = () => {
     setNewChild((prev) => ({ ...prev, [name]: value }));
   };
 
-  const addChild = (e) => {
+  const addChild = async (e) => {
     e.preventDefault();
-    const newChildData = { ...newChild, id: children.length + 1 };
-    setChildren((prev) => [...prev, newChildData]);
-    setNewChild({ name: '', age: '', specialNeeds: '', sessionType: 'half-day' });
-    alert('Child added successfully! Please submit enrollment request.');
+    try {
+      setLoading(true);
+      const response = await operations.createChild(newChild);
+      setChildren(prev => [...prev, response.data]);
+      setNewChild({ name: '', age: '', specialNeeds: '', sessionType: 'half-day' });
+      addNotification('Child added successfully! Please submit enrollment request.', 'success', 'parent');
+    } catch (error) {
+      addNotification('Failed to add child. Please try again.', 'error', 'parent');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Handle child editing
@@ -81,13 +119,19 @@ const ParentDashboard = () => {
     setEditingChild({ ...child });
   };
 
-  const saveEditedChild = (e) => {
+  const saveEditedChild = async (e) => {
     e.preventDefault();
-    setChildren((prev) =>
-      prev.map((child) => (child.id === editingChild.id ? editingChild : child))
-    );
-    setEditingChild(null);
-    alert('Child profile updated successfully!');
+    try {
+      setLoading(true);
+      const response = await operations.updateChild(editingChild.id, editingChild);
+      setChildren(prev => prev.map(child => child.id === editingChild.id ? response.data : child));
+      setEditingChild(null);
+      addNotification('Child profile updated successfully!', 'success', 'parent');
+    } catch (error) {
+      addNotification('Failed to update child profile. Please try again.', 'error', 'parent');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const cancelEdit = () => {
@@ -96,8 +140,10 @@ const ParentDashboard = () => {
 
   // Handle logout
   const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userEmail');
     setIsLoggedIn(false);
-    alert('Logged out successfully!');
     navigate('/login');
   };
 

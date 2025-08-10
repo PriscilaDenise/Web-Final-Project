@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { auth } from '../api';
+import Notification from '../components/Notification';
 
 const LoginPage = () => {
   const [formData, setFormData] = useState({
@@ -10,6 +12,8 @@ const LoginPage = () => {
     password: '',
     role: 'parent', // Default role
   });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -17,24 +21,41 @@ const LoginPage = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Simulate login (replace with actual API call in future)
-    console.log('Login Attempt:', formData);
+    setLoading(true);
+    setError('');
 
-    // Simulate role-based redirection
-    switch (formData.role) {
-      case 'parent':
-        navigate('/parent-dashboard');
-        break;
-      case 'babysitter':
-        navigate('/babysitter-dashboard');
-        break;
-      case 'manager':
-        navigate('/manager-dashboard');
-        break;
-      default:
-        alert('Invalid role selected');
+    try {
+      const response = await auth.login({
+        email: formData.email,
+        password: formData.password,
+        role: formData.role
+      });
+
+      // Store the token in localStorage
+      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('userRole', formData.role);
+      localStorage.setItem('userEmail', formData.email);
+
+      // Redirect based on role
+      switch (formData.role) {
+        case 'parent':
+          navigate('/parent-dashboard');
+          break;
+        case 'babysitter':
+          navigate('/babysitter-dashboard');
+          break;
+        case 'manager':
+          navigate('/manager-dashboard');
+          break;
+        default:
+          setError('Invalid role selected');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Login failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -49,6 +70,8 @@ const LoginPage = () => {
         <p className="text-center mb-6">
           Enter your credentials to access the Daystar Daycare system.
         </p>
+
+        {error && <Notification type="error" message={error} />}
 
         <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md space-y-6">
           {/* Email */}
@@ -107,9 +130,12 @@ const LoginPage = () => {
           <div className="text-center">
             <button
               type="submit"
-              className="inline-block px-6 py-3 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600"
+              disabled={loading}
+              className={`inline-block px-6 py-3 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 ${
+                loading ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             >
-              Login
+              {loading ? 'Logging in...' : 'Login'}
             </button>
           </div>
         </form>

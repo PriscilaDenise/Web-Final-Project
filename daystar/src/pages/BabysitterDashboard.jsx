@@ -1,48 +1,75 @@
 // src/pages/BabysitterDashboard.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import Notifications from '../components/Notification';
+import { useNotifications } from '../context/NotificationContext';
+import { babysitters, schedules, incidents, operations } from '../api';
 
 const BabysitterDashboard = () => {
   const navigate = useNavigate();
-  const [isLoggedIn, setIsLoggedIn] = useState(true); // Simulate logged-in state
+  const { notifications, addNotification } = useNotifications();
+  const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const [loading, setLoading] = useState(false);
 
-  // Mock data
-  const [profile] = useState({
-    firstName: 'Mary',
-    lastName: 'Smith',
-    phone: '+256 987 654 321',
-    nin: 'CM12345678',
+  const [profile, setProfile] = useState({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    nin: '',
   });
 
-  const [schedules] = useState([
-    { id: 1, date: '2025-04-10', time: '08:00 - 12:00', children: ['John Doe', 'Emma Brown'] },
-    { id: 2, date: '2025-04-10', time: '13:00 - 17:00', children: ['Liam White'] },
-  ]);
-
-  const [attendance] = useState([
-    { id: 1, childName: 'John Doe', date: '2025-04-09', status: 'Present', session: 'Full-Day' },
-    { id: 2, childName: 'Emma Brown', date: '2025-04-09', status: 'Present', session: 'Half-Day' },
-  ]);
-
+  const [schedulesList, setSchedulesList] = useState([]);
+  const [attendanceList, setAttendanceList] = useState([]);
   const [password, setPassword] = useState('');
   const [incidentReport, setIncidentReport] = useState({ childName: '', description: '' });
   const [dailyReport, setDailyReport] = useState('');
   const [activeTab, setActiveTab] = useState('profile');
+
+  // Fetch initial data
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [profileRes, schedulesRes] = await Promise.all([
+          babysitters.getProfile(),
+          schedules.getAll()
+        ]);
+        
+        setProfile(profileRes.data);
+        setSchedulesList(schedulesRes.data);
+      } catch (error) {
+        addNotification('Failed to fetch data. Please try again.', 'error', 'babysitter');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [addNotification]);
 
   // Handle password change
   const handlePasswordChange = (e) => {
     setPassword(e.target.value);
   };
 
-  const savePassword = () => {
+  const savePassword = async () => {
     if (password.length < 6) {
-      alert('Password must be at least 6 characters long.');
+      addNotification('Password must be at least 6 characters long.', 'error', 'babysitter');
       return;
     }
-    alert('Password changed successfully!');
-    setPassword('');
+
+    try {
+      setLoading(true);
+      await operations.updatePassword(password);
+      addNotification('Password changed successfully!', 'success', 'babysitter');
+      setPassword('');
+    } catch (error) {
+      addNotification('Failed to change password. Please try again.', 'error', 'babysitter');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Handle incident report
@@ -51,11 +78,18 @@ const BabysitterDashboard = () => {
     setIncidentReport((prev) => ({ ...prev, [name]: value }));
   };
 
-  const submitIncident = (e) => {
+  const submitIncident = async (e) => {
     e.preventDefault();
-    console.log('Incident Reported:', incidentReport);
-    alert('Incident report submitted to the manager!');
-    setIncidentReport({ childName: '', description: '' });
+    try {
+      setLoading(true);
+      await incidents.create(incidentReport);
+      addNotification('Incident report submitted successfully!', 'success', 'babysitter');
+      setIncidentReport({ childName: '', description: '' });
+    } catch (error) {
+      addNotification('Failed to submit incident report. Please try again.', 'error', 'babysitter');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Handle daily report
@@ -63,16 +97,25 @@ const BabysitterDashboard = () => {
     setDailyReport(e.target.value);
   };
 
-  const submitDailyReport = () => {
-    console.log('Daily Report Submitted:', dailyReport);
-    alert('Daily report submitted successfully!');
-    setDailyReport('');
+  const submitDailyReport = async () => {
+    try {
+      setLoading(true);
+      await operations.submitDailyReport(dailyReport);
+      addNotification('Daily report submitted successfully!', 'success', 'babysitter');
+      setDailyReport('');
+    } catch (error) {
+      addNotification('Failed to submit daily report. Please try again.', 'error', 'babysitter');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Handle logout
   const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userEmail');
     setIsLoggedIn(false);
-    alert('Logged out successfully!');
     navigate('/login');
   };
 
@@ -136,7 +179,7 @@ const BabysitterDashboard = () => {
         {activeTab === 'schedules' && (
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h2 className="text-2xl font-semibold mb-4">Your Schedules</h2>
-            {schedules.length > 0 ? (
+            {schedulesList.length > 0 ? (
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-gray-200">
@@ -146,7 +189,7 @@ const BabysitterDashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {schedules.map((schedule) => (
+                  {schedulesList.map((schedule) => (
                     <tr key={schedule.id} className="border-b">
                       <td className="p-2">{schedule.date}</td>
                       <td className="p-2">{schedule.time}</td>
@@ -164,7 +207,7 @@ const BabysitterDashboard = () => {
         {activeTab === 'attendance' && (
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h2 className="text-2xl font-semibold mb-4">Child Attendance</h2>
-            {attendance.length > 0 ? (
+            {attendanceList.length > 0 ? (
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-gray-200">
@@ -175,7 +218,7 @@ const BabysitterDashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {attendance.map((record) => (
+                  {attendanceList.map((record) => (
                     <tr key={record.id} className="border-b">
                       <td className="p-2">{record.childName}</td>
                       <td className="p-2">{record.date}</td>

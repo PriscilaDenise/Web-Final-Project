@@ -5,56 +5,50 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import Notifications from '../components/Notification';
 import { useNotifications } from '../context/NotificationContext';
+import { babysitters, schedules, incidents, expenses, parentPayments } from '../api';
 
 const ManagerDashboard = () => {
   const navigate = useNavigate();
   const { notifications, addNotification, removeNotification } = useNotifications();
   const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const [loading, setLoading] = useState(false);
 
-  const [babysitters, setBabysitters] = useState([
-    { id: 1, firstName: 'Mary', lastName: 'Smith', email: 'mary@example.com', phone: '+256 987 654 321', nin: 'CM12345678', age: 25, nextOfKin: { name: 'John Smith', phone: '+256 111 222 333' } },
-  ]);
-
-  const [children, setChildren] = useState([
-    { id: 1, name: 'John Doe', age: 3, parentPhone: '+256 123 456 789', sessionType: 'full-day', approved: true, paymentDue: 5000, paymentStatus: 'pending', lastCheckIn: null },
-  ]);
-
-  const [pendingChildren, setPendingChildren] = useState([
-    { id: 2, name: 'Emma Brown', age: 2, parentPhone: '+256 999 888 777', sessionType: 'half-day', approved: false, paymentDue: 2000, paymentStatus: 'pending' },
-  ]);
-
-  const [schedules, setSchedules] = useState([
-    { id: 1, babysitterId: 1, date: '2025-04-10', time: '08:00 - 17:00', children: ['John Doe'], sessionType: 'full-day', attended: true },
-  ]);
-
-  const [payments, setPayments] = useState([
-    { id: 1, babysitterId: 1, date: '2025-04-09', amount: 5000, children: 1, sessionType: 'full-day', cleared: false },
-  ]);
-
-  const [expenses, setExpenses] = useState([
-    { id: 1, date: '2025-04-09', amount: 10000, description: 'Babysitter Salary - Mary Smith', category: 'salaries' },
-  ]);
-
+  const [babysittersList, setBabysittersList] = useState([]);
+  const [children, setChildren] = useState([]);
+  const [pendingChildren, setPendingChildren] = useState([]);
+  const [schedulesList, setSchedulesList] = useState([]);
+  const [payments, setPayments] = useState([]);
+  const [expensesList, setExpensesList] = useState([]);
   const [budget, setBudget] = useState({ salaries: 5000, toys: 3000, maintenance: 5000, utilities: 2000 });
 
   const [newBabysitter, setNewBabysitter] = useState({ firstName: '', lastName: '', email: '', phone: '', nin: '', age: '', nextOfKin: { name: '', phone: '' } });
   const [newChild, setNewChild] = useState({ name: '', age: '', parentPhone: '', sessionType: 'half-day' });
   const [newSchedule, setNewSchedule] = useState({ babysitterId: '', date: '', time: '', children: [], sessionType: 'half-day' });
-  const [activeTab, setActiveTab] = useState('notifications'); // Default to notifications
+  const [activeTab, setActiveTab] = useState('notifications');
 
-  const budgetAdherence = Object.keys(budget).map(category => ({
-    category,
-    budget: budget[category],
-    spent: expenses.filter(exp => exp.category === category).reduce((sum, exp) => sum + exp.amount, 0),
-  }));
-
+  // Fetch initial data
   useEffect(() => {
-    budgetAdherence.forEach(({ category, budget, spent }) => {
-      if (spent > budget) {
-        addNotification(`Budget exceeded for ${category} by ${spent - budget} K (Budget: ${budget} K, Spent: ${spent} K)`, 'error', 'manager');
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [babysittersRes, schedulesRes, expensesRes] = await Promise.all([
+          babysitters.getAll(),
+          schedules.getAll(),
+          expenses.getAll()
+        ]);
+        
+        setBabysittersList(babysittersRes.data);
+        setSchedulesList(schedulesRes.data);
+        setExpensesList(expensesRes.data);
+      } catch (error) {
+        addNotification('Failed to fetch data. Please try again.', 'error', 'manager');
+      } finally {
+        setLoading(false);
       }
-    });
-  }, [budgetAdherence, addNotification]);
+    };
+
+    fetchData();
+  }, [addNotification]);
 
   const handleBabysitterChange = (e) => {
     const { name, value } = e.target;
@@ -66,7 +60,7 @@ const ManagerDashboard = () => {
     }
   };
 
-  const addBabysitter = (e) => {
+  const addBabysitter = async (e) => {
     e.preventDefault();
     const age = Number(newBabysitter.age);
     if (age < 21 || age > 35) {
@@ -77,9 +71,18 @@ const ManagerDashboard = () => {
       addNotification('Please fill all required fields for babysitter registration.', 'error', 'manager');
       return;
     }
-    setBabysitters((prev) => [...prev, { ...newBabysitter, id: prev.length + 1, age }]);
-    setNewBabysitter({ firstName: '', lastName: '', email: '', phone: '', nin: '', age: '', nextOfKin: { name: '', phone: '' } });
-    addNotification('Babysitter registered successfully!', 'success', 'manager');
+
+    try {
+      setLoading(true);
+      const response = await babysitters.create(newBabysitter);
+      setBabysittersList(prev => [...prev, response.data]);
+      setNewBabysitter({ firstName: '', lastName: '', email: '', phone: '', nin: '', age: '', nextOfKin: { name: '', phone: '' } });
+      addNotification('Babysitter registered successfully!', 'success', 'manager');
+    } catch (error) {
+      addNotification('Failed to register babysitter. Please try again.', 'error', 'manager');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleChildChange = (e) => {
@@ -172,32 +175,49 @@ const ManagerDashboard = () => {
     setNewSchedule((prev) => ({ ...prev, [name]: value }));
   };
 
-  const addSchedule = (e) => {
+  const addSchedule = async (e) => {
     e.preventDefault();
     if (!newSchedule.babysitterId || !newSchedule.date || !newSchedule.time) {
       addNotification('Please fill all required fields for scheduling.', 'error', 'manager');
       return;
     }
-    const selectedChildren = children.filter(c => c.sessionType === newSchedule.sessionType).map(c => c.name).slice(0, 1);
-    const paymentAmount = calculatePayment(selectedChildren.length, newSchedule.sessionType);
-    setSchedules((prev) => [...prev, { ...newSchedule, id: prev.length + 1, babysitterId: Number(newSchedule.babysitterId), children: selectedChildren, attended: false }]);
-    setPayments((prev) => [...prev, { id: prev.length + 1, babysitterId: Number(newSchedule.babysitterId), date: newSchedule.date, amount: paymentAmount, children: selectedChildren.length, sessionType: newSchedule.sessionType, cleared: false }]);
-    setNewSchedule({ babysitterId: '', date: '', time: '', children: [], sessionType: 'half-day' });
-    addNotification(`Schedule added for ${babysitters.find(b => b.id === Number(newSchedule.babysitterId))?.firstName} on ${newSchedule.date}.`, 'success', 'manager');
+
+    try {
+      setLoading(true);
+      const response = await schedules.create(newSchedule);
+      setSchedulesList(prev => [...prev, response.data]);
+      setNewSchedule({ babysitterId: '', date: '', time: '', children: [], sessionType: 'half-day' });
+      addNotification('Schedule added successfully!', 'success', 'manager');
+    } catch (error) {
+      addNotification('Failed to add schedule. Please try again.', 'error', 'manager');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const toggleAttendance = (scheduleId) => {
-    setSchedules((prev) => prev.map(s => s.id === scheduleId ? { ...s, attended: !s.attended } : s));
-    const schedule = schedules.find(s => s.id === scheduleId);
-    addNotification(`${babysitters.find(b => b.id === schedule.babysitterId)?.firstName}'s attendance updated to ${schedule.attended ? 'Not Attended' : 'Attended'}.`, 'info', 'manager');
+  const toggleAttendance = async (scheduleId) => {
+    try {
+      setLoading(true);
+      const schedule = schedulesList.find(s => s.id === scheduleId);
+      const response = await schedules.update(scheduleId, { ...schedule, attended: !schedule.attended });
+      setSchedulesList(prev => prev.map(s => s.id === scheduleId ? response.data : s));
+      addNotification('Attendance updated successfully!', 'success', 'manager');
+    } catch (error) {
+      addNotification('Failed to update attendance. Please try again.', 'error', 'manager');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const exportScheduleReport = () => {
-    console.log('Schedule Report:', schedules);
+    console.log('Schedule Report:', schedulesList);
     addNotification('Schedule report exported (simulated).', 'success', 'manager');
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userEmail');
     setIsLoggedIn(false);
     navigate('/login');
   };
@@ -251,7 +271,7 @@ const ManagerDashboard = () => {
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h2 className="text-2xl font-semibold mb-4 text-gray-800">Babysitter Management</h2>
             <div className="mb-6">
-              {babysitters.map((b) => (
+              {babysittersList.map((b) => (
                 <div key={b.id} className="border-b py-4">
                   <p><strong>{b.firstName} {b.lastName}</strong></p>
                   <p>Email: {b.email || 'N/A'}</p>
@@ -296,7 +316,7 @@ const ManagerDashboard = () => {
                 {payments.map((p) => (
                   <tr key={p.id} className="border-b hover:bg-gray-50">
                     <td className="p-2">{p.date}</td>
-                    <td className="p-2">{babysitters.find(b => b.id === p.babysitterId)?.firstName} {babysitters.find(b => b.id === p.babysitterId)?.lastName}</td>
+                    <td className="p-2">{babysittersList.find(b => b.id === p.babysitterId)?.firstName} {babysittersList.find(b => b.id === p.babysitterId)?.lastName}</td>
                     <td className="p-2">{p.amount}</td>
                     <td className="p-2">{p.children}</td>
                     <td className="p-2">{p.sessionType}</td>
@@ -327,11 +347,11 @@ const ManagerDashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {schedules.map((s) => (
+                  {schedulesList.map((s) => (
                     <tr key={s.id} className="border-b hover:bg-gray-50">
                       <td className="p-2">{s.date}</td>
                       <td className="p-2">{s.time}</td>
-                      <td className="p-2">{babysitters.find(b => b.id === s.babysitterId)?.firstName} {babysitters.find(b => b.id === s.babysitterId)?.lastName}</td>
+                      <td className="p-2">{babysittersList.find(b => b.id === s.babysitterId)?.firstName} {babysittersList.find(b => b.id === s.babysitterId)?.lastName}</td>
                       <td className="p-2">{s.children.join(', ')}</td>
                       <td className="p-2">{s.sessionType}</td>
                       <td className="p-2">
@@ -349,7 +369,7 @@ const ManagerDashboard = () => {
             <form onSubmit={addSchedule} className="space-y-4">
               <select name="babysitterId" value={newSchedule.babysitterId} onChange={handleScheduleChange} className="w-full px-3 py-2 border rounded-md">
                 <option value="">Select Babysitter</option>
-                {babysitters.map(b => <option key={b.id} value={b.id}>{b.firstName} {b.lastName}</option>)}
+                {babysittersList.map(b => <option key={b.id} value={b.id}>{b.firstName} {b.lastName}</option>)}
               </select>
               <input type="date" name="date" value={newSchedule.date} onChange={handleScheduleChange} className="w-full px-3 py-2 border rounded-md" />
               <input type="text" name="time" value={newSchedule.time} onChange={handleScheduleChange} placeholder="e.g., 08:00 - 17:00" className="w-full px-3 py-2 border rounded-md" />
@@ -452,7 +472,7 @@ const ManagerDashboard = () => {
         {activeTab === 'financials' && (
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h2 className="text-2xl font-semibold mb-4 text-gray-800">Financial Management</h2>
-            <p>Total Expenses: {expenses.reduce((s, e) => s + e.amount, 0)} K</p>
+            <p>Total Expenses: {expensesList.reduce((s, e) => s + e.amount, 0)} K</p>
           </div>
         )}
       </section>
